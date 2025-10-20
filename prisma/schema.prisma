@@ -14,23 +14,24 @@ enum Role {
 }
 
 model User {
-  id          String    @id @default(cuid())
-  role        Role      @default(BUYER)
-  email       String    @unique
+  id          String     @id @default(cuid())
+  role        Role       @default(BUYER)
+  email       String     @unique
   name        String?
   phone       String?
   preferences Json?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
   leads       Lead[]
   offers      Offer[]
   tours       Tour[]
   messages    Message[]
+  favorites   Favorite[]
 }
 
 model Listing {
-  id           String   @id @default(cuid())
-  mlsId        String?  @unique
+  id           String     @id @default(cuid())
+  mlsId        String?    @unique
   address      String
   lat          Float
   lng          Float
@@ -45,10 +46,11 @@ model Listing {
   photos       String[]
   features     String[]
   raw          Json?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
   tours        Tour[]
   offers       Offer[]
+  favorites    Favorite[]
 }
 
 model Lead {
@@ -115,4 +117,16 @@ model Message {
   body      String
   createdAt DateTime @default(now())
   user      User?    @relation(fields: [userId], references: [id])
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String
+  listingId String
+  notes     String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  listing   Listing  @relation(fields: [listingId], references: [id])
+
+  @@unique([userId, listingId])
 }
