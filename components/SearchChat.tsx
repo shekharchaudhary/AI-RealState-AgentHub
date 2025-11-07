@@ -33,6 +33,8 @@ export default function SearchChat({ onSearchUpdate }: SearchChatProps) {
   const recognitionRef = useRef<any>(null);
   const synthesisRef = useRef<SpeechSynthesis | null>(null);
   const shouldContinueListening = useRef<boolean>(false);
+  const restartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const watchdogIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -41,6 +43,16 @@ export default function SearchChat({ onSearchUpdate }: SearchChatProps) {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Cleanup watchdog on unmount
+  useEffect(() => {
+    return () => {
+      stopWatchdog();
+      if (restartTimeoutRef.current) {
+        clearTimeout(restartTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     // Initialize Speech Recognition API
@@ -94,15 +106,23 @@ export default function SearchChat({ onSearchUpdate }: SearchChatProps) {
       };
 
       recognitionRef.current.onend = () => {
+        console.log('🎤 Recognition ended');
         setIsListening(false);
-        // Auto-restart if we should continue (in voice mode and not currently speaking)
+
+        // Auto-restart if we should continue
         if (shouldContinueListening.current && !isSpeaking) {
-          setTimeout(() => {
+          // Clear any existing restart timeout
+          if (restartTimeoutRef.current) {
+            clearTimeout(restartTimeoutRef.current);
+          }
+
+          // Schedule aggressive restart
+          restartTimeoutRef.current = setTimeout(() => {
             if (shouldContinueListening.current && !isSpeaking && !isListening) {
-              console.log('Auto-restarting listening...');
+              console.log('🔄 Auto-restart after timeout...');
               startListening();
             }
-          }, 600);
+          }, 500);
         }
       };
     }
@@ -166,14 +186,22 @@ export default function SearchChat({ onSearchUpdate }: SearchChatProps) {
 
     utterance.onend = () => {
       setIsSpeaking(false);
+      console.log('✅ AI finished speaking');
+
       // Resume listening if we should continue
       if (shouldContinueListening.current) {
-        setTimeout(() => {
+        // Clear any existing restart timeout
+        if (restartTimeoutRef.current) {
+          clearTimeout(restartTimeoutRef.current);
+        }
+
+        // Schedule restart with shorter delay
+        restartTimeoutRef.current = setTimeout(() => {
           if (shouldContinueListening.current && !isListening) {
-            console.log('AI finished speaking, restarting listening...');
+            console.log('🔄 Auto-restart after speaking...');
             startListening();
           }
-        }, 500);
+        }, 400);
       }
     };
 
@@ -194,19 +222,46 @@ export default function SearchChat({ onSearchUpdate }: SearchChatProps) {
 
   const startListening = () => {
     if (!recognitionRef.current) return;
-    if (isListening) return; // Already listening, don't start again
+    if (isListening) {
+      console.log('Already listening, skipping start');
+      return;
+    }
 
     try {
       recognitionRef.current.start();
       setIsListening(true);
-      console.log('Started listening...');
+      console.log('✅ Started listening...');
     } catch (error: any) {
       // Ignore "already started" errors
       if (error.message && error.message.includes('already started')) {
         console.log('Speech recognition already active');
+        setIsListening(true); // Sync state
       } else {
         console.error('Error starting voice recognition:', error);
       }
+    }
+  };
+
+  // Watchdog to ensure continuous listening in voice mode
+  const startWatchdog = () => {
+    // Clear any existing watchdog
+    if (watchdogIntervalRef.current) {
+      clearInterval(watchdogIntervalRef.current);
+    }
+
+    // Check every 2 seconds if we should be listening but aren't
+    watchdogIntervalRef.current = setInterval(() => {
+      if (shouldContinueListening.current && !isListening && !isSpeaking && !isLoading) {
+        console.log('🔧 Watchdog: Restarting listening...');
+        startListening();
+      }
+    }, 2000);
+  };
+
+  const stopWatchdog = () => {
+    if (watchdogIntervalRef.current) {
+      clearInterval(watchdogIntervalRef.current);
+      watchdogIntervalRef.current = null;
     }
   };
 
@@ -215,8 +270,11 @@ export default function SearchChat({ onSearchUpdate }: SearchChatProps) {
     setVoiceMode(newVoiceMode);
 
     if (newVoiceMode) {
-      // Enter voice mode - enable continuous listening
+      // Enter voice mode - enable continuous listening and watchdog
       shouldContinueListening.current = true;
+      startWatchdog();
+      console.log('🎤 Voice mode activated - continuous listening enabled');
+
       const greeting =
         "Hey there! I'm Emma, your AI real estate agent. I'm here to help you find your perfect home! What can I help you with today?";
       setMessages((prev) => [
@@ -225,9 +283,18 @@ export default function SearchChat({ onSearchUpdate }: SearchChatProps) {
       ]);
       speak(greeting);
     } else {
-      // Exit voice mode - disable continuous listening and stop everything
+      // Exit voice mode - disable everything
+      console.log('🛑 Voice mode deactivated');
       shouldContinueListening.current = false;
+      stopWatchdog();
       stopSpeaking();
+
+      // Clear any pending restart timeouts
+      if (restartTimeoutRef.current) {
+        clearTimeout(restartTimeoutRef.current);
+        restartTimeoutRef.current = null;
+      }
+
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
@@ -640,21 +707,28 @@ export default function SearchChat({ onSearchUpdate }: SearchChatProps) {
                 ? 'Listening to your request...'
                 : isSpeaking
                 ? 'Speaking response...'
-                : 'Voice mode active'}
+                : isLoading
+                ? 'Processing...'
+                : 'Ready - continuous mode active'}
             </p>
             <p className='mt-1 text-xs text-gray-500 dark:text-gray-400'>
               {isListening
                 ? 'Speak now'
                 : isSpeaking
                 ? 'Please wait...'
-                : "I'll start listening after speaking"}
+                : isLoading
+                ? 'Thinking about your request...'
+                : 'Will auto-listen in a moment'}
             </p>
-            {!isListening && !isSpeaking && (
+            {!isListening && !isSpeaking && !isLoading && (
               <button
-                onClick={startListening}
-                className='mt-4 px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full hover:shadow-lg transition-all duration-300'
+                onClick={() => {
+                  console.log('👆 Manual restart triggered');
+                  startListening();
+                }}
+                className='mt-4 px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full hover:shadow-lg transition-all duration-300 animate-pulse'
               >
-                Start Talking
+                🎤 Tap to Talk Now
               </button>
             )}
           </div>
