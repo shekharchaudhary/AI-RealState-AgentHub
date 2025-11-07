@@ -1,4 +1,7 @@
+'use client';
+
 import Link from 'next/link';
+import { useState } from 'react';
 
 interface PropertyCardProps {
   id: string;
@@ -9,6 +12,8 @@ interface PropertyCardProps {
   sqft?: number;
   photos: string[];
   propertyType: string;
+  isFavorited?: boolean;
+  onFavoriteChange?: () => void;
 }
 
 export default function PropertyCard({
@@ -20,7 +25,11 @@ export default function PropertyCard({
   sqft,
   photos,
   propertyType,
+  isFavorited = false,
+  onFavoriteChange,
 }: PropertyCardProps) {
+  const [isSaved, setIsSaved] = useState(isFavorited);
+  const [isSaving, setIsSaving] = useState(false);
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -28,6 +37,50 @@ export default function PropertyCard({
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(price);
+  };
+
+  const handleFavoriteClick = async (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent navigation
+    e.stopPropagation(); // Stop event bubbling
+
+    if (isSaving) return;
+
+    setIsSaving(true);
+
+    try {
+      if (isSaved) {
+        // Remove from favorites
+        const response = await fetch(`/api/favorites?listingId=${id}`, {
+          method: 'DELETE',
+        });
+
+        if (response.ok) {
+          setIsSaved(false);
+          if (onFavoriteChange) onFavoriteChange();
+        } else {
+          console.error('Failed to remove favorite');
+        }
+      } else {
+        // Add to favorites
+        const response = await fetch('/api/favorites', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ listingId: id }),
+        });
+
+        if (response.ok || response.status === 409) {
+          // 409 means already saved, which is fine
+          setIsSaved(true);
+          if (onFavoriteChange) onFavoriteChange();
+        } else {
+          console.error('Failed to save favorite');
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -47,11 +100,34 @@ export default function PropertyCard({
               </svg>
             </div>
           )}
-          <div className="absolute top-2 right-2">
+          <div className="absolute top-2 left-2">
             <span className="px-2 py-0.5 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm text-xs font-semibold text-gray-900 dark:text-white rounded-full capitalize">
               {propertyType}
             </span>
           </div>
+          <button
+            onClick={handleFavoriteClick}
+            disabled={isSaving}
+            className="absolute top-2 right-2 p-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-full hover:scale-110 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed group/fav"
+            title={isSaved ? 'Remove from favorites' : 'Add to favorites'}
+          >
+            <svg
+              className={`w-5 h-5 transition-colors duration-200 ${
+                isSaved
+                  ? 'fill-red-500 text-red-500'
+                  : 'fill-none text-gray-600 dark:text-gray-300 group-hover/fav:text-red-500'
+              }`}
+              stroke="currentColor"
+              strokeWidth={2}
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+              />
+            </svg>
+          </button>
         </div>
 
         <div className="p-3">

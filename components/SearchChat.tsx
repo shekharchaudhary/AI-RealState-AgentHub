@@ -9,9 +9,11 @@ interface Message {
 
 interface SearchChatProps {
   onSearchUpdate: (filters: any) => void;
+  currentPropertyId?: string | null;
+  onPropertySaved?: () => void;
 }
 
-export default function SearchChat({ onSearchUpdate }: SearchChatProps) {
+export default function SearchChat({ onSearchUpdate, currentPropertyId, onPropertySaved }: SearchChatProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
@@ -24,17 +26,25 @@ export default function SearchChat({ onSearchUpdate }: SearchChatProps) {
   const [isListening, setIsListening] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [availableVoices, setAvailableVoices] = useState<
-    SpeechSynthesisVoice[]
-  >([]);
-  const [selectedVoice, setSelectedVoice] =
-    useState<SpeechSynthesisVoice | null>(null);
+  const [selectedVoice, setSelectedVoice] = useState('21m00Tcm4TlvDq8ikWAM'); // Rachel voice ID
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
-  const synthesisRef = useRef<SpeechSynthesis | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const shouldContinueListening = useRef<boolean>(false);
   const restartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const watchdogIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // ElevenLabs voice options
+  const elevenLabsVoices = [
+    { id: '21m00Tcm4TlvDq8ikWAM', name: 'Rachel' , description: 'Warm, friendly female' },
+    { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Bella', description: 'Young, upbeat female' },
+    { id: 'MF3mGyEYCl7XYWbV9V6O', name: 'Elli', description: 'Professional female' },
+    { id: 'AZnzlk1XvdvUeBnXmlld', name: 'Domi', description: 'Confident female' },
+    { id: 'ThT5KcBeYPX3keUQqHPh', name: 'Freya', description: 'Mature, sophisticated female' },
+    { id: 'TX3LPaxmHKxFdv7VOQHJ', name: 'Gigi', description: 'Youthful, energetic female' },
+    { id: 'pNInz6obpgDQGcFmaJgB', name: 'Adam', description: 'Deep, professional male' },
+    { id: 'VR6AewLTigWG4xSOukaG', name: 'Arnold', description: 'Strong, authoritative male' },
+  ];
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -127,95 +137,93 @@ export default function SearchChat({ onSearchUpdate }: SearchChatProps) {
       };
     }
 
-    // Initialize Speech Synthesis API
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      synthesisRef.current = window.speechSynthesis;
+    // Initialize audio element for ElevenLabs playback
+    if (typeof window !== 'undefined' && !audioRef.current) {
+      audioRef.current = new Audio();
 
-      // Load available voices
-      const loadVoices = () => {
-        const voices = synthesisRef.current?.getVoices() || [];
-        setAvailableVoices(voices);
+      audioRef.current.onended = () => {
+        setIsSpeaking(false);
+        console.log('✅ AI finished speaking');
 
-        // Auto-select a good default voice (prefer English female voices)
-        if (!selectedVoice && voices.length > 0) {
-          const englishVoices = voices.filter((v) => v.lang.startsWith('en'));
-          const preferredVoice =
-            englishVoices.find(
-              (v) => v.name.includes('Female') || v.name.includes('Samantha')
-            ) ||
-            englishVoices.find(
-              (v) => v.name.includes('Google') || v.name.includes('Microsoft')
-            ) ||
-            englishVoices[0] ||
-            voices[0];
-          setSelectedVoice(preferredVoice);
+        // Resume listening if we should continue
+        if (shouldContinueListening.current) {
+          // Clear any existing restart timeout
+          if (restartTimeoutRef.current) {
+            clearTimeout(restartTimeoutRef.current);
+          }
+
+          // Schedule restart with shorter delay
+          restartTimeoutRef.current = setTimeout(() => {
+            if (shouldContinueListening.current && !isListening) {
+              console.log('🔄 Auto-restart after speaking...');
+              startListening();
+            }
+          }, 400);
         }
       };
 
-      // Load voices immediately
-      loadVoices();
+      audioRef.current.onerror = (error) => {
+        console.error('Audio playback error:', error);
+        setIsSpeaking(false);
+      };
+    }
+  }, [voiceMode, isSpeaking]);
 
-      // Some browsers load voices asynchronously
-      if (synthesisRef.current) {
-        synthesisRef.current.onvoiceschanged = loadVoices;
+  const speak = async (text: string) => {
+    if (!audioRef.current) return;
+
+    // Stop any ongoing speech
+    if (audioRef.current.src) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+
+    setIsSpeaking(true);
+    console.log('🎤 Generating speech with ElevenLabs...');
+
+    try {
+      // Call ElevenLabs API endpoint
+      const response = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: text,
+          voiceId: selectedVoice,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate speech');
       }
-    }
-  }, [voiceMode, isSpeaking, selectedVoice]);
 
-  const speak = (text: string) => {
-    if (!synthesisRef.current) return;
+      // Get audio blob and create URL
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
 
-    // Cancel any ongoing speech
-    synthesisRef.current.cancel();
+      // Play audio
+      audioRef.current.src = audioUrl;
+      await audioRef.current.play();
+      console.log('🔊 Playing ElevenLabs audio...');
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1.0;
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
-    utterance.lang = 'en-US';
-
-    // Use selected voice if available
-    if (selectedVoice) {
-      utterance.voice = selectedVoice;
-      utterance.lang = selectedVoice.lang;
-    }
-
-    utterance.onstart = () => {
-      setIsSpeaking(true);
-    };
-
-    utterance.onend = () => {
+    } catch (error) {
+      console.error('ElevenLabs TTS error:', error);
       setIsSpeaking(false);
-      console.log('✅ AI finished speaking');
 
-      // Resume listening if we should continue
+      // Resume listening even on error
       if (shouldContinueListening.current) {
-        // Clear any existing restart timeout
-        if (restartTimeoutRef.current) {
-          clearTimeout(restartTimeoutRef.current);
-        }
-
-        // Schedule restart with shorter delay
         restartTimeoutRef.current = setTimeout(() => {
           if (shouldContinueListening.current && !isListening) {
-            console.log('🔄 Auto-restart after speaking...');
             startListening();
           }
         }, 400);
       }
-    };
-
-    utterance.onerror = (event) => {
-      console.error('Speech synthesis error:', event);
-      setIsSpeaking(false);
-    };
-
-    synthesisRef.current.speak(utterance);
+    }
   };
 
   const stopSpeaking = () => {
-    if (synthesisRef.current) {
-      synthesisRef.current.cancel();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
       setIsSpeaking(false);
     }
   };
@@ -262,6 +270,35 @@ export default function SearchChat({ onSearchUpdate }: SearchChatProps) {
     if (watchdogIntervalRef.current) {
       clearInterval(watchdogIntervalRef.current);
       watchdogIntervalRef.current = null;
+    }
+  };
+
+  const saveProperty = async (propertyId: string) => {
+    try {
+      const response = await fetch('/api/favorites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listingId: propertyId }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        console.log('✅ Property saved successfully');
+        if (onPropertySaved) {
+          onPropertySaved(); // Callback to refresh data if needed
+        }
+        return true;
+      } else if (response.status === 409) {
+        console.log('ℹ️ Property already saved');
+        return true; // Not an error, just already saved
+      } else {
+        console.error('Failed to save property:', data.error);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error saving property:', error);
+      return false;
     }
   };
 
@@ -319,13 +356,19 @@ export default function SearchChat({ onSearchUpdate }: SearchChatProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: transcript,
-          conversationHistory: updatedMessages
+          conversationHistory: updatedMessages,
+          currentPropertyId: currentPropertyId
         }),
       });
 
       if (!response.ok) throw new Error('Failed to process message');
 
       const data = await response.json();
+
+      // Handle save property action
+      if (data.action === 'save_property' && data.propertyId) {
+        await saveProperty(data.propertyId);
+      }
 
       // Update search filters
       if (data.filters) {
@@ -378,13 +421,19 @@ export default function SearchChat({ onSearchUpdate }: SearchChatProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: userMessage,
-          conversationHistory: updatedMessages
+          conversationHistory: updatedMessages,
+          currentPropertyId: currentPropertyId
         }),
       });
 
       if (!response.ok) throw new Error('Failed to process message');
 
       const data = await response.json();
+
+      // Handle save property action
+      if (data.action === 'save_property' && data.propertyId) {
+        await saveProperty(data.propertyId);
+      }
 
       // Update search filters
       if (data.filters) {
@@ -532,26 +581,18 @@ export default function SearchChat({ onSearchUpdate }: SearchChatProps) {
                   Voice:
                 </label>
                 <select
-                  value={selectedVoice?.name || ''}
+                  value={selectedVoice}
                   onChange={(e) => {
-                    const voice = availableVoices.find(
-                      (v) => v.name === e.target.value
-                    );
-                    setSelectedVoice(voice || null);
+                    setSelectedVoice(e.target.value);
                   }}
                   className='text-xs px-2 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:outline-none'
                   disabled={isSpeaking || isListening}
                 >
-                  {availableVoices
-                    .filter((v) => v.lang.startsWith('en')) // Only show English voices
-                    .map((voice) => (
-                      <option key={voice.name} value={voice.name}>
-                        {voice.name
-                          .replace(/Microsoft|Google|Apple/, '')
-                          .trim()}{' '}
-                        ({voice.lang})
-                      </option>
-                    ))}
+                  {elevenLabsVoices.map((voice) => (
+                    <option key={voice.id} value={voice.id}>
+                      {voice.name} - {voice.description}
+                    </option>
+                  ))}
                 </select>
                 <button
                   onClick={() => {

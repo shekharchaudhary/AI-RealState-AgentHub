@@ -447,7 +447,14 @@ export default function SearchPage() {
           {showChat && (
             <div className='lg:col-span-4 xl:col-span-3'>
               <div className='sticky top-24 h-[calc(100vh-8rem)]'>
-                <SearchChat onSearchUpdate={handleChatSearchUpdate} />
+                <SearchChat
+                  onSearchUpdate={handleChatSearchUpdate}
+                  currentPropertyId={listings.length > 0 ? listings[0].id : null}
+                  onPropertySaved={() => {
+                    // Optionally refresh the search or show a notification
+                    console.log('Property saved! Refresh dashboard to see it.');
+                  }}
+                />
               </div>
             </div>
           )}

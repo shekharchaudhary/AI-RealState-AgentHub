@@ -7,7 +7,7 @@ const openai = new OpenAI({
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, conversationHistory } = await request.json();
+    const { message, conversationHistory, currentPropertyId } = await request.json();
 
     if (!message) {
       return NextResponse.json(
@@ -45,6 +45,7 @@ CAPABILITIES:
 - Ask clarifying questions when needed
 - Make recommendations based on their preferences
 - Discuss neighborhoods, pricing trends, and property features
+- Save properties to favorites when requested
 
 CONVERSATION STYLE:
 - If they make a search request, acknowledge it warmly and ask if they'd like to know more
@@ -54,7 +55,7 @@ CONVERSATION STYLE:
 - Remember previous context from the conversation
 
 RESPONSE FORMAT:
-Return a JSON object with TWO fields:
+Return a JSON object with THREE fields:
 {
   "conversationalResponse": "Your warm, natural response to the user (2-3 sentences max)",
   "filters": {
@@ -66,12 +67,14 @@ Return a JSON object with TWO fields:
     "propertyType": "house" | "condo" | "townhouse" | "land" | "all" | null,
     "mapCenter": { "lat": number, "lng": number } or null,
     "mapZoom": number between 8-15 or null
-  }
+  },
+  "action": "save_property" | null
 }
 
 IMPORTANT:
 - If the user makes a search request, include both "conversationalResponse" AND "filters"
 - If they're just chatting (asking questions, discussing preferences), include only "conversationalResponse" with "filters": null
+- If the user wants to save/favorite a property (says "save", "save this", "save property", "favorite this", "add to favorites"), set "action": "save_property"
 - Make "conversationalResponse" warm and engaging, like a real agent would speak
 - Ask follow-up questions to keep the conversation going
 
@@ -92,7 +95,15 @@ Response: {
 User: "Yes, show me 3 bedroom places under 3 million"
 Response: {
   "conversationalResponse": "Perfect! I'm searching for 3-bedroom properties in San Francisco under $3M. This is a sweet spot in the market. Any preference on neighborhood?",
-  "filters": {"location": "San Francisco, CA", "beds": 3, "priceMax": 3000000, "mapCenter": {"lat": 37.7749, "lng": -122.4194}, "mapZoom": 12}
+  "filters": {"location": "San Francisco, CA", "beds": 3, "priceMax": 3000000, "mapCenter": {"lat": 37.7749, "lng": -122.4194}, "mapZoom": 12},
+  "action": null
+}
+
+User: "Save this property" or "I like this one, save it"
+Response: {
+  "conversationalResponse": "Great choice! I've saved this property to your favorites. You can view all your saved properties in your dashboard!",
+  "filters": null,
+  "action": "save_property"
 }
 
 Known US cities with coordinates:
@@ -148,10 +159,12 @@ Return ONLY the JSON object, no markdown formatting or explanation.`,
     const result = completion.choices[0].message.content;
     const parsed = JSON.parse(result || '{}');
 
-    // Return conversational response and filters
+    // Return conversational response, filters, and actions
     return NextResponse.json({
       message: parsed.conversationalResponse || parsed.message || 'Let me help you find your dream home!',
       filters: parsed.filters || null,
+      action: parsed.action || null,
+      propertyId: currentPropertyId || null,
     });
   } catch (error) {
     console.error('Chat error:', error);
