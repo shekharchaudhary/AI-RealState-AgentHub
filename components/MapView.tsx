@@ -32,7 +32,7 @@ interface MapViewProps {
 export default function MapView({
   properties,
   center,
-  zoom = 11,
+  zoom = 10,
 }: MapViewProps) {
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(
     null
@@ -48,7 +48,7 @@ export default function MapView({
           lng:
             properties.reduce((sum, p) => sum + p.lng, 0) / properties.length,
         }
-      : { lat: 37.4419, lng: -122.143 }); // Default to Palo Alto
+      : { lat: 40.7128, lng: -73.9352 }); // Default to New York City
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -94,8 +94,8 @@ export default function MapView({
       <div className='w-full h-full rounded-2xl overflow-hidden'>
         <Map
           mapId='nestora-map'
-          defaultCenter={mapCenter}
-          defaultZoom={zoom}
+          center={mapCenter}
+          zoom={zoom}
           gestureHandling='greedy'
           disableDefaultUI={false}
           zoomControl={true}

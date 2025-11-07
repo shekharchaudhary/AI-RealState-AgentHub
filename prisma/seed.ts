@@ -5,8 +5,15 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('Seeding database with 100 Bay Area properties...');
 
-  // Clear existing listings
+  // Clear existing data in correct order (child tables first)
+  await prisma.tour.deleteMany();
+  await prisma.favorite.deleteMany();
+  await prisma.escrow.deleteMany();
+  await prisma.offer.deleteMany();
+  await prisma.message.deleteMany();
+  await prisma.lead.deleteMany();
   await prisma.listing.deleteMany();
+  await prisma.user.deleteMany();
 
   const listings = [
     // San Francisco (15 properties)

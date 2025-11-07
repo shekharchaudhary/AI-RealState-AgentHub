@@ -31,9 +31,14 @@ async function main() {
   const favoritesData = listings.slice(0, 5).map((listing, index) => ({
     userId: user.id,
     listingId: listing.id,
-    notes: index === 0 ? 'Perfect location near schools!' :
-           index === 1 ? 'Love the backyard space' :
-           index === 2 ? 'Great price for the area' : null,
+    notes:
+      index === 0
+        ? 'Perfect location near schools!'
+        : index === 1
+        ? 'Love the backyard space'
+        : index === 2
+        ? 'Great price for the area'
+        : null,
   }));
 
   for (const fav of favoritesData) {
