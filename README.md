@@ -1,4 +1,4 @@
-# Nestora - AI-Powered Virtual Realtor Assistant
+# AI-Powered Virtual Realtor Assistant
 
 A modern web application that helps buyers and sellers with end-to-end real estate workflows using AI automation.
 
