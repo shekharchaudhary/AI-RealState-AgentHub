@@ -47,7 +47,7 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
   };
 
   return (
-    <div className='min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-pink-900'>
+    <div className='min-h-screen flex flex-col bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-pink-900'>
       {/* Navigation */}
       <nav className='bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 sticky top-0 z-40'>
         <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
@@ -77,7 +77,7 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
       </nav>
 
       {/* Main Content */}
-      <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
+      <div className='flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
         {/* Photo Gallery */}
         <div className='mb-8'>
           <PhotoGallery

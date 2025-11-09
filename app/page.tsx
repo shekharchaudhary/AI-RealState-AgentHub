@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 export default function Home() {
   return (
-    <div className='min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-blue-950'>
+    <div className='min-h-screen flex flex-col bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-blue-950'>
       <nav className='border-b border-gray-200/50 dark:border-gray-700/50 bg-white/70 dark:bg-gray-900/70 backdrop-blur-md fixed w-full z-10 shadow-sm'>
         <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
           <div className='flex justify-between h-16 items-center'>
@@ -30,7 +30,7 @@ export default function Home() {
         </div>
       </nav>
 
-      <main className='pt-16'>
+      <main className='flex-1 pt-16'>
         <section className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-32'>
           <div className='text-center'>
             <div className='inline-block mb-6'>
@@ -165,25 +165,6 @@ export default function Home() {
                 documents seamlessly
               </p>
             </div>
-          </div>
-        </section>
-
-        <section className='relative bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 py-20 mt-20 overflow-hidden'>
-          <div className='absolute inset-0 bg-grid-white/10'></div>
-          <div className='relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center'>
-            <h2 className='text-4xl md:text-5xl font-bold text-white mb-6'>
-              Ready to Find Your Dream Home?
-            </h2>
-            <p className='text-blue-100 mb-10 text-xl max-w-2xl mx-auto'>
-              Join thousands of buyers who trust RealStateAgent.AI for their
-              home search
-            </p>
-            <Link
-              href='/search'
-              className='inline-block px-10 py-4 bg-white text-blue-600 rounded-full hover:bg-gray-100 hover:scale-105 transition-all duration-200 text-lg font-semibold shadow-xl'
-            >
-              Get Started Free
-            </Link>
           </div>
         </section>
       </main>

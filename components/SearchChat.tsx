@@ -313,6 +313,40 @@ export default function SearchChat({ onSearchUpdate, currentPropertyId, searchRe
     }
   };
 
+  const scheduleTour = async (propertyId: string, tourDetails: { dateTime: string; duration: number }) => {
+    try {
+      // Calculate end time based on duration
+      const startDate = new Date(tourDetails.dateTime);
+      const endDate = new Date(startDate.getTime() + tourDetails.duration * 60000); // duration in minutes
+
+      const response = await fetch('/api/tours', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          listingId: propertyId,
+          start: startDate.toISOString(),
+          end: endDate.toISOString(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        console.log('✅ Tour scheduled successfully:', data.tour);
+        if (onPropertySaved) {
+          onPropertySaved(); // Use same callback to refresh data
+        }
+        return true;
+      } else {
+        console.error('Failed to schedule tour:', data.error);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error scheduling tour:', error);
+      return false;
+    }
+  };
+
   const toggleVoiceMode = () => {
     const newVoiceMode = !voiceMode;
     setVoiceMode(newVoiceMode);
@@ -382,6 +416,11 @@ export default function SearchChat({ onSearchUpdate, currentPropertyId, searchRe
         await saveProperty(data.propertyId);
       }
 
+      // Handle schedule tour action
+      if (data.action === 'schedule_tour' && data.propertyId && data.tourDetails) {
+        await scheduleTour(data.propertyId, data.tourDetails);
+      }
+
       // Update search filters
       if (data.filters) {
         onSearchUpdate(data.filters);
@@ -446,6 +485,11 @@ export default function SearchChat({ onSearchUpdate, currentPropertyId, searchRe
       // Handle save property action
       if (data.action === 'save_property' && data.propertyId) {
         await saveProperty(data.propertyId);
+      }
+
+      // Handle schedule tour action
+      if (data.action === 'schedule_tour' && data.propertyId && data.tourDetails) {
+        await scheduleTour(data.propertyId, data.tourDetails);
       }
 
       // Update search filters
