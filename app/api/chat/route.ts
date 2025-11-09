@@ -7,7 +7,7 @@ const openai = new OpenAI({
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, conversationHistory, currentPropertyId } = await request.json();
+    const { message, conversationHistory, currentPropertyId, searchResults } = await request.json();
 
     if (!message) {
       return NextResponse.json(
@@ -23,6 +23,16 @@ export async function POST(request: NextRequest) {
           content: msg.content
         }))
       : [];
+
+    // Format search results for Emma to describe
+    let searchResultsContext = '';
+    if (searchResults && searchResults.length > 0) {
+      searchResultsContext = '\n\nCURRENT SEARCH RESULTS:\n';
+      searchResults.forEach((property: any, index: number) => {
+        searchResultsContext += `${index + 1}. ${property.address} - $${property.price.toLocaleString()} | ${property.beds} beds, ${property.baths} baths${property.sqft ? `, ${property.sqft.toLocaleString()} sqft` : ''} | ${property.propertyType}\n`;
+      });
+      searchResultsContext += '\nDescribe these properties naturally when responding to the user.';
+    }
 
     // Use OpenAI to have a conversational dialogue and parse queries
     const completion = await openai.chat.completions.create({
@@ -48,10 +58,12 @@ CAPABILITIES:
 - Save properties to favorites when requested
 
 CONVERSATION STYLE:
-- If they make a search request, acknowledge it warmly and ask if they'd like to know more
-- Ask follow-up questions: "What brings you to [city]?" or "Are you flexible on budget?"
+- If they make a search request, acknowledge it warmly and DESCRIBE THE TOP PROPERTIES from the search results
+- When properties are available, describe them naturally: "I found [X] great options! The first is a [beds]-bedroom [type] at [address] for $[price]..."
+- Mention 2-3 key properties with their standout features (price, location, size, etc.)
+- Ask follow-up questions: "What brings you to [city]?" or "Are you flexible on budget?" or "Would you like to know more about any of these?"
 - Share insights: "That's a great neighborhood for families!" or "Prices there have been trending up!"
-- Keep responses conversational and under 3 sentences
+- Keep responses conversational and under 4-5 sentences when describing properties
 - Remember previous context from the conversation
 
 RESPONSE FORMAT:
@@ -143,6 +155,7 @@ Known US cities with coordinates:
 - Minneapolis, MN: 44.9778, -93.2650
 - Palo Alto, CA: 37.4419, -122.1430
 - Mountain View, CA: 37.3861, -122.0839
+${searchResultsContext}
 
 Return ONLY the JSON object, no markdown formatting or explanation.`,
         },

@@ -450,6 +450,7 @@ export default function SearchPage() {
                 <SearchChat
                   onSearchUpdate={handleChatSearchUpdate}
                   currentPropertyId={listings.length > 0 ? listings[0].id : null}
+                  searchResults={listings}
                   onPropertySaved={() => {
                     // Optionally refresh the search or show a notification
                     console.log('Property saved! Refresh dashboard to see it.');

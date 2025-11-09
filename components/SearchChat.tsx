@@ -7,13 +7,24 @@ interface Message {
   content: string;
 }
 
+interface Listing {
+  id: string;
+  address: string;
+  price: number;
+  beds: number;
+  baths: number;
+  sqft?: number;
+  propertyType: string;
+}
+
 interface SearchChatProps {
   onSearchUpdate: (filters: any) => void;
   currentPropertyId?: string | null;
+  searchResults?: Listing[];
   onPropertySaved?: () => void;
 }
 
-export default function SearchChat({ onSearchUpdate, currentPropertyId, onPropertySaved }: SearchChatProps) {
+export default function SearchChat({ onSearchUpdate, currentPropertyId, searchResults = [], onPropertySaved }: SearchChatProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
@@ -357,7 +368,8 @@ export default function SearchChat({ onSearchUpdate, currentPropertyId, onProper
         body: JSON.stringify({
           message: transcript,
           conversationHistory: updatedMessages,
-          currentPropertyId: currentPropertyId
+          currentPropertyId: currentPropertyId,
+          searchResults: searchResults.slice(0, 5) // Send top 5 results
         }),
       });
 
@@ -422,7 +434,8 @@ export default function SearchChat({ onSearchUpdate, currentPropertyId, onProper
         body: JSON.stringify({
           message: userMessage,
           conversationHistory: updatedMessages,
-          currentPropertyId: currentPropertyId
+          currentPropertyId: currentPropertyId,
+          searchResults: searchResults.slice(0, 5) // Send top 5 results
         }),
       });
 
