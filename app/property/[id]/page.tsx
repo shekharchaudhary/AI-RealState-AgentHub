@@ -1,6 +1,10 @@
+'use client';
+
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import PhotoGallery from '@/components/PhotoGallery';
+import { useTheme } from '@/components/ThemeProvider';
+import { useEffect, useState } from 'react';
 
 interface PropertyPageProps {
   params: Promise<{ id: string }>;
@@ -25,13 +29,32 @@ async function getProperty(id: string) {
   }
 }
 
-export default async function PropertyPage({ params }: PropertyPageProps) {
-  const { id } = await params;
-  const property = await getProperty(id);
+export default function PropertyPage({ params }: PropertyPageProps) {
+  const { theme, toggleTheme } = useTheme();
+  const [property, setProperty] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [propertyId, setPropertyId] = useState<string | null>(null);
 
-  if (!property) {
-    notFound();
-  }
+  useEffect(() => {
+    params.then((resolvedParams) => {
+      setPropertyId(resolvedParams.id);
+    });
+  }, [params]);
+
+  useEffect(() => {
+    if (!propertyId) return;
+
+    const fetchProperty = async () => {
+      const data = await getProperty(propertyId);
+      if (!data) {
+        notFound();
+      }
+      setProperty(data);
+      setLoading(false);
+    };
+
+    fetchProperty();
+  }, [propertyId]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -45,6 +68,21 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
   const formatNumber = (num: number) => {
     return new Intl.NumberFormat('en-US').format(num);
   };
+
+  if (loading) {
+    return (
+      <div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-pink-900'>
+        <div className='text-center'>
+          <div className='w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4'></div>
+          <p className='text-gray-600 dark:text-gray-400'>Loading property...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!property) {
+    notFound();
+  }
 
   return (
     <div className='min-h-screen flex flex-col bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-pink-900'>
@@ -65,6 +103,21 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
               >
                 Back to Search
               </Link>
+              <button
+                onClick={toggleTheme}
+                className='p-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors'
+                title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+              >
+                {theme === 'light' ? (
+                  <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z' />
+                  </svg>
+                ) : (
+                  <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z' />
+                  </svg>
+                )}
+              </button>
               <Link
                 href='/dashboard'
                 className='px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition-all duration-300'
